@@ -6,6 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000'
 export function useDashboard() {
   const [snapshot, setSnapshot] = useState(null)
   const [recentSales, setRecentSales] = useState([])
+  const [alerts, setAlerts] = useState([])
   const [connected, setConnected] = useState(false)
   const [pulse, setPulse] = useState(false)
   const connectionRef = useRef(null)
@@ -26,6 +27,10 @@ export function useDashboard() {
       setSnapshot(data)
     })
 
+    connection.on('AnomalyDetected', (alert) => {
+      setAlerts(prev => [alert, ...prev].slice(0, 8))
+    })
+
     connection.onreconnecting(() => setConnected(false))
     connection.onreconnected(() => setConnected(true))
 
@@ -38,5 +43,5 @@ export function useDashboard() {
     return () => connection.stop()
   }, [])
 
-  return { snapshot, recentSales, connected, pulse }
+  return { snapshot, recentSales, alerts, connected, pulse }
 }

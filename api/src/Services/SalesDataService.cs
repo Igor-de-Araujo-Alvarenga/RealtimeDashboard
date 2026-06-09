@@ -5,23 +5,38 @@ namespace RealtimeDashboard.Api.Services;
 public class SalesDataService
 {
     private readonly List<SaleEvent> _sales = new();
+    private readonly Dictionary<string, int> _saleCount = new();
     private readonly string[] _products = ["Laptop Pro", "Wireless Mouse", "Mechanical Keyboard", "4K Monitor", "USB-C Hub", "Webcam HD", "Standing Desk", "Chair Ergo"];
     private readonly string[] _regions = ["North America", "Europe", "Asia Pacific", "Latin America", "Middle East"];
     private readonly Random _rng = new();
 
+    private const int FraudWarmup = 12;
+    private const double FraudProbability = 0.22;
+    private const double FraudMinMultiplier = 1.35;
+    private const double FraudMaxMultiplier = 1.85;
+
     public SaleEvent GenerateSale()
     {
-        var product = _products[_rng.Next(_products.Length)];
-        var region = _regions[_rng.Next(_regions.Length)];
+        var product  = _products[_rng.Next(_products.Length)];
+        var region   = _regions[_rng.Next(_regions.Length)];
         var quantity = _rng.Next(1, 6);
-        var unitPrice = product switch
+
+        var baseUnitPrice = (decimal)(product switch
         {
-            "Laptop Pro" => _rng.Next(900, 1800),
-            "4K Monitor" => _rng.Next(300, 700),
-            "Standing Desk" => _rng.Next(400, 900),
-            "Chair Ergo" => _rng.Next(250, 600),
-            _ => _rng.Next(30, 200)
-        };
+            "Laptop Pro"    => _rng.Next(900,  1800),
+            "4K Monitor"    => _rng.Next(300,  700),
+            "Standing Desk" => _rng.Next(400,  900),
+            "Chair Ergo"    => _rng.Next(250,  600),
+            _               => _rng.Next(30,   200)
+        });
+
+        var key = $"{product}::{region}";
+        _saleCount.TryGetValue(key, out var count);
+        _saleCount[key] = count + 1;
+
+        var unitPrice = ShouldInjectFraud(count)
+            ? InjectFraud(baseUnitPrice)
+            : baseUnitPrice;
 
         var sale = new SaleEvent(
             Guid.NewGuid().ToString("N")[..8],
@@ -38,13 +53,22 @@ public class SalesDataService
         return sale;
     }
 
+    private bool ShouldInjectFraud(int countForKey)
+        => countForKey >= FraudWarmup && _rng.NextDouble() < FraudProbability;
+
+    private decimal InjectFraud(decimal basePrice)
+    {
+        var multiplier = FraudMinMultiplier + _rng.NextDouble() * (FraudMaxMultiplier - FraudMinMultiplier);
+        return Math.Round(basePrice * (decimal)multiplier, 2);
+    }
+
     public DashboardSnapshot GetSnapshot()
     {
         if (_sales.Count == 0)
             return new DashboardSnapshot(0, 0, 0, "-", "-", [], [], []);
 
-        var totalRevenue = _sales.Sum(s => s.Amount);
-        var totalOrders = _sales.Count;
+        var totalRevenue  = _sales.Sum(s => s.Amount);
+        var totalOrders   = _sales.Count;
         var avgOrderValue = totalRevenue / totalOrders;
 
         var regionStats = _sales

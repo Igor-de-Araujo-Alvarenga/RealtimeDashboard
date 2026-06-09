@@ -1,9 +1,29 @@
+# .NET
 bin/
 obj/
-node_modules/
-dist/
-.env
 *.user
+*.suo
 .vs/
 .idea/
+*.DotSettings.user
+
+# Node
+node_modules/
+dist/
+.npm
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Docker
+.dockerignore
